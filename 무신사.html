@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>품절 항목 코웍 프로그램</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f12;
+    --surface: #161920;
+    --surface2: #1e2229;
+    --border: #2a2f3a;
+    --accent: #e8ff47;
+    --accent2: #47c8ff;
+    --text: #f0f2f5;
+    --text2: #8b919e;
+    --text3: #555d6b;
+    --tag-단품: #2a3340;
+    --tag-단품-text: #8ba0b8;
+    --tag-set: #1a2e3a;
+    --tag-set-text: #47c8ff;
+    --tag-2pack: #1e2e1a;
+    --tag-2pack-text: #7ddb5a;
+    --tag-mixed: #2e2a1a;
+    --tag-mixed-text: #f5c842;
+    --radius: 8px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Pretendard', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── UPLOAD SCREEN ── */
+  #upload-screen {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+    padding: 40px;
+  }
+
+  .upload-logo {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--text3);
+    text-transform: uppercase;
+  }
+
+  .upload-title {
+    font-size: 28px;
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.3;
+  }
+
+  .upload-title span { color: var(--accent); }
+
+  .upload-zone {
+    width: 100%;
+    max-width: 480px;
+    border: 1.5px dashed var(--border);
+    border-radius: 16px;
+    padding: 48px 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface);
+    position: relative;
+  }
+
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--accent);
+    background: #1a1e18;
+  }
+
+  .upload-zone input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer;
+  }
+
+  .upload-icon {
+    font-size: 40px;
+    margin-bottom: 16px;
+  }
+
+  .upload-zone h3 {
+    font-size: 16px; font-weight: 600; margin-bottom: 8px;
+  }
+
+  .upload-zone p {
+    font-size: 13px; color: var(--text2);
+  }
+
+  .upload-hint {
+    font-size: 12px;
+    color: var(--text3);
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── DASHBOARD ── */
+  #dashboard { display: none; }
+
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(13,15,18,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    display: flex; align-items: center; gap: 24px;
+    height: 56px;
+  }
+
+  .topbar-brand {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  .topbar-title {
+    font-size: 14px; font-weight: 600;
+    color: var(--text);
+  }
+
+  .topbar-sep { width: 1px; height: 20px; background: var(--border); }
+
+  .topbar-right {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 12px;
+  }
+
+  .btn-reset {
+    font-size: 12px; color: var(--text2);
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 14px; cursor: pointer;
+    font-family: 'Pretendard', sans-serif;
+    transition: all 0.15s;
+  }
+  .btn-reset:hover { color: var(--text); border-color: var(--text3); }
+
+  .main { padding: 28px 32px; max-width: 1400px; }
+
+  /* ── STATS ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+  }
+
+  .stat-label {
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.1em;
+    color: var(--text3);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .stat-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .stat-value.blue { color: var(--accent2); }
+  .stat-value.white { color: var(--text); }
+
+  .stat-sub {
+    font-size: 12px;
+    color: var(--text3);
+    margin-top: 6px;
+  }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex; gap: 4px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0;
+  }
+
+  .tab {
+    padding: 10px 20px;
+    font-size: 13px; font-weight: 500;
+    color: var(--text2);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all 0.15s;
+  }
+
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  .tab:hover:not(.active) { color: var(--text); }
+
+  /* ── CONTROLS ── */
+  .controls {
+    display: flex; gap: 12px; align-items: center;
+    margin-bottom: 16px; flex-wrap: wrap;
+  }
+
+  .search-wrap {
+    position: relative; flex: 1; min-width: 200px; max-width: 360px;
+  }
+
+  .search-wrap input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 12px 8px 36px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: 'Pretendard', sans-serif;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .search-wrap input:focus { border-color: var(--accent2); }
+  .search-wrap input::placeholder { color: var(--text3); }
+
+  .search-icon {
+    position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+    color: var(--text3); font-size: 14px; pointer-events: none;
+  }
+
+  .filter-btn {
+    padding: 8px 14px;
+    font-size: 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text2);
+    cursor: pointer;
+    font-family: 'Pretendard', sans-serif;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .filter-btn.active {
+    background: var(--accent);
+    color: #0d0f12;
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+
+  .filter-btn:hover:not(.active) { border-color: var(--text3); color: var(--text); }
+
+  .count-badge {
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    color: var(--text3);
+    margin-left: auto;
+  }
+
+  /* ── TABLE ── */
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead tr {
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  th {
+    padding: 11px 14px;
+    text-align: left;
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.08em;
+    color: var(--text3);
+    text-transform: uppercase;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  th:hover { color: var(--text2); }
+  th.sort-asc::after { content: ' ↑'; color: var(--accent); }
+  th.sort-desc::after { content: ' ↓'; color: var(--accent); }
+
+  tbody tr {
+    border-bottom: 1px solid #1a1e25;
+    transition: background 0.1s;
+  }
+
+  tbody tr:hover { background: var(--surface2); }
+  tbody tr:last-child { border-bottom: none; }
+
+  td {
+    padding: 10px 14px;
+    color: var(--text);
+    vertical-align: middle;
+  }
+
+  .td-name { font-weight: 500; }
+  .td-mono {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--text2);
+  }
+
+  .td-num {
+    font-family: 'DM Mono', monospace;
+    font-weight: 500;
+    text-align: right;
+  }
+
+  .td-num.highlight { color: var(--accent); }
+
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+  }
+
+  .tag-단품 { background: var(--tag-단품); color: var(--tag-단품-text); }
+  .tag-SET  { background: var(--tag-set);  color: var(--tag-set-text);  }
+  .tag-2PACK { background: var(--tag-2pack); color: var(--tag-2pack-text); }
+  .tag-mixed { background: var(--tag-mixed); color: var(--tag-mixed-text); }
+
+  .bar-wrap {
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .bar {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--accent);
+    opacity: 0.6;
+    transition: width 0.3s ease;
+  }
+
+  /* ── EMPTY ── */
+  .empty {
+    padding: 60px;
+    text-align: center;
+    color: var(--text3);
+    font-size: 14px;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 768px) {
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .topbar { padding: 0 16px; }
+    .main { padding: 20px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- UPLOAD SCREEN -->
+<div id="upload-screen">
+  <div class="upload-logo">FC Team · Cowork Program</div>
+  <div class="upload-title">품절 항목 <span>코웍 프로그램</span><br>대시보드</div>
+
+  <div class="upload-zone" id="upload-zone">
+    <input type="file" id="file-input" accept=".xlsx,.xls" />
+    <div class="upload-icon">📊</div>
+    <h3>무신사 주문 엑셀 파일 업로드</h3>
+    <p>파일을 드래그하거나 클릭해서 선택하세요</p>
+    <p style="margin-top:8px; font-size:12px; color: var(--text3);">무신사 2주 주문 데이터 (.xlsx)</p>
+  </div>
+
+  <div class="upload-hint">지원 형식: .xlsx / .xls &nbsp;·&nbsp; 현재고 0 자동 필터링</div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <div class="topbar">
+    <div class="topbar-brand">FC · Cowork</div>
+    <div class="topbar-sep"></div>
+    <div class="topbar-title" id="topbar-filename">—</div>
+    <div class="topbar-right">
+      <span id="topbar-date" style="font-size:12px; color: var(--text3); font-family: 'DM Mono', monospace;"></span>
+      <button class="btn-reset" onclick="resetDashboard()">↩ 다시 업로드</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <!-- Stats -->
+    <div class="stats-row" id="stats-row"></div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('detail', this)">색상 · 사이즈별 상세</div>
+      <div class="tab" onclick="switchTab('product', this)">상품별 합산</div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls" id="controls">
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="search-input" placeholder="상품명 검색..." oninput="applyFilters()" />
+      </div>
+      <button class="filter-btn active" onclick="setFilter('all', this)">전체</button>
+      <button class="filter-btn" onclick="setFilter('단품', this)">단품</button>
+      <button class="filter-btn" onclick="setFilter('SET', this)">SET</button>
+      <button class="filter-btn" onclick="setFilter('2PACK', this)">2PACK</button>
+      <button class="filter-btn" onclick="setFilter('mixed', this)">복합</button>
+      <span class="count-badge" id="count-badge"></span>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <table id="main-table">
+        <thead id="table-head"></thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const SIZE_PATTERN = /\b(XS|S|M|L|XL|2XL|3XL|4XL|FREE)\b/;
+
+let allData = { detail: [], product: [] };
+let currentTab = 'detail';
+let currentFilter = 'all';
+let sortCol = null, sortDir = 'desc';
+
+// ── UPLOAD ──
+const zone = document.getElementById('upload-zone');
+const fileInput = document.getElementById('file-input');
+
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+zone.addEventListener('drop', e => {
+  e.preventDefault(); zone.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => { if (e.target.files[0]) processFile(e.target.files[0]); });
+
+function processFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      parseAndRender(rows, file.name);
+    } catch(err) {
+      alert('파일을 읽는 중 오류가 발생했습니다.\n' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parseAndRender(rows, filename) {
+  // 컬럼명 감지
+  const sample = rows[0] || {};
+  const keys = Object.keys(sample);
+
+  const nameKey   = keys.find(k => k.includes('상품명') && !k.includes('사입'));
+  const optKey    = keys.find(k => k.includes('옵션'));
+  const stockKey  = keys.find(k => k.includes('현재') && (k.includes('수량') || k.includes('재고')));
+  const qtyKey    = keys.find(k => k === '수량' || k.includes('주문수량'));
+
+  if (!nameKey || !optKey) {
+    alert('올바른 무신사 주문 파일이 아닙니다.\n상품명, 옵션 컬럼을 찾을 수 없습니다.');
+    return;
+  }
+
+  // 현재고 0 필터
+  const filtered = rows.filter(r => {
+    const stock = stockKey ? parseInt(r[stockKey]) : 0;
+    return stock === 0;
+  });
+
+  // 단품 코드→이름 매핑
+  const codeToName = {};
+  rows.filter(r => {
+    const n = String(r[nameKey] || '');
+    return !n.includes('[SET]') && !/2PACK|2pack/.test(n);
+  }).forEach(r => {
+    const n = String(r[nameKey] || '');
+    const m = n.match(/[A-Z]{2,}[0-9]{4,}/g);
+    if (m && !codeToName[m[0]]) {
+      codeToName[m[0]] = n.replace(/\s+\S+\s+([A-Z]{2,}[0-9]{4,}).*$/, ' $1').trim();
+    }
+  });
+
+  // 그룹핑
+  const grouped = {};
+  filtered.forEach(r => {
+    const key = String(r[nameKey]) + '|||' + String(r[optKey] || '');
+    if (!grouped[key]) grouped[key] = { 상품명: String(r[nameKey]), 옵션: String(r[optKey] || ''), 수량: 0, 건수: 0 };
+    grouped[key].수량 += parseInt(r[qtyKey] || 1);
+    grouped[key].건수 += 1;
+  });
+
+  // 파싱
+  const unitRows = [];
+  Object.values(grouped).forEach(g => {
+    const { 상품명, 옵션, 수량, 건수 } = g;
+    let parsed, 유형;
+
+    if (상품명.includes('[SET]')) {
+      parsed = parseSet(상품명, 옵션, codeToName); 유형 = 'SET';
+    } else if (/2PACK/i.test(상품명)) {
+      parsed = parse2Pack(상품명, 옵션, codeToName); 유형 = '2PACK';
+    } else {
+      parsed = parseSingle(상품명, 옵션, codeToName); 유형 = '단품';
+    }
+
+    (parsed || []).forEach(([name, color, size]) => {
+      unitRows.push({ 상품명: name, 색상: color, 사이즈: size, 수량, 건수, 유형 });
+    });
+  });
+
+  // 집계 - 색상/사이즈별
+  const detailMap = {};
+  unitRows.forEach(r => {
+    const k = `${r.상품명}||${r.색상}||${r.사이즈}`;
+    if (!detailMap[k]) detailMap[k] = { 상품명: r.상품명, 색상: r.색상, 사이즈: r.사이즈, 총주문수량: 0, 총주문건수: 0, 출처: new Set() };
+    detailMap[k].총주문수량 += r.수량;
+    detailMap[k].총주문건수 += r.건수;
+    detailMap[k].출처.add(r.유형);
+  });
+
+  allData.detail = Object.values(detailMap).map(d => ({
+    ...d, 출처: [...d.출처].sort().join('+')
+  })).sort((a,b) => b.총주문수량 - a.총주문수량);
+
+  // 집계 - 상품별
+  const productMap = {};
+  unitRows.forEach(r => {
+    if (!productMap[r.상품명]) productMap[r.상품명] = { 상품명: r.상품명, 총주문수량: 0, 총주문건수: 0, 출처: new Set() };
+    productMap[r.상품명].총주문수량 += r.수량;
+    productMap[r.상품명].총주문건수 += r.건수;
+    productMap[r.상품명].출처.add(r.유형);
+  });
+
+  allData.product = Object.values(productMap).map(d => ({
+    ...d, 출처: [...d.출처].sort().join('+')
+  })).sort((a,b) => b.총주문수량 - a.총주문수량);
+
+  // 렌더
+  document.getElementById('topbar-filename').textContent = filename;
+  document.getElementById('topbar-date').textContent = new Date().toLocaleDateString('ko-KR');
+  renderStats();
+  renderTable();
+
+  document.getElementById('upload-screen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+}
+
+// ── PARSE ──
+function getBaseName(code, map) {
+  return map[code] || `(${code})`;
+}
+
+function parseSet(상품명, 옵션, map) {
+  const codes = 상품명.match(/[A-Z]{2,}[0-9]{4,}/g) || [];
+  const parts = 옵션.split(':').map(s => s.trim());
+  if (parts.length >= 3 && codes.length >= 2) {
+    const size1 = parts[1];
+    const part2 = parts[2].replace(/\(\+\d+\)/, '').trim();
+    const m2 = part2.match(SIZE_PATTERN);
+    const size2 = m2 ? m2[1] : size1;
+    const color2 = part2.replace(SIZE_PATTERN, '').trim();
+    return [[getBaseName(codes[0], map), parts[0], size1],
+            [getBaseName(codes[1], map), color2, size2]];
+  }
+  return null;
+}
+
+function parse2Pack(상품명, 옵션, map) {
+  const codes = 상품명.match(/[A-Z]{2,}[0-9]{4,}/g) || [];
+  const code = codes[0];
+  const base = code ? getBaseName(code, map) : 상품명;
+  const parts = 옵션.split(':').map(s => s.trim());
+  if (parts.length >= 3) {
+    const size1 = parts[1];
+    const part2 = parts[2].replace(/\(\+\d+\)/, '').trim();
+    const m2 = part2.match(SIZE_PATTERN);
+    const size2 = m2 ? m2[1] : size1;
+    const color2 = part2.replace(SIZE_PATTERN, '').trim();
+    return [[base, parts[0], size1], [base, color2, size2]];
+  }
+  return null;
+}
+
+function parseSingle(상품명, 옵션, map) {
+  const codes = 상품명.match(/[A-Z]{2,}[0-9]{4,}/g) || [];
+  const base = codes.length
+    ? 상품명.replace(/\s+\S+\s+([A-Z]{2,}[0-9]{4,}).*$/, ' $1').trim()
+    : 상품명;
+  const parts = 옵션.split(':').map(s => s.trim());
+  return [[base, parts[0] || 옵션, parts[1] || '-']];
+}
+
+// ── RENDER ──
+function renderStats() {
+  const d = allData.detail;
+  const p = allData.product;
+  const totalQty = d.reduce((s, r) => s + r.총주문수량, 0);
+  const totalOrders = d.reduce((s, r) => s + r.총주문건수, 0);
+  const setCount = [...new Set(d.filter(r => r.출처.includes('SET')).map(r => r.상품명))].length;
+  const packCount = [...new Set(d.filter(r => r.출처.includes('2PACK')).map(r => r.상품명))].length;
+
+  document.getElementById('stats-row').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">품절 단품 SKU</div>
+      <div class="stat-value">${d.length.toLocaleString()}</div>
+      <div class="stat-sub">색상·사이즈 기준</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">품절 상품 수</div>
+      <div class="stat-value blue">${p.length.toLocaleString()}</div>
+      <div class="stat-sub">상품명 기준 합산</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">총 미처리 주문수량</div>
+      <div class="stat-value white">${totalQty.toLocaleString()}</div>
+      <div class="stat-sub">총 ${totalOrders.toLocaleString()}건</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">SET / 2PACK</div>
+      <div class="stat-value" style="font-size:24px;">
+        <span style="color:var(--accent2)">${setCount}</span>
+        <span style="color:var(--text3); font-size:16px; margin:0 4px">/</span>
+        <span style="color:#7ddb5a">${packCount}</span>
+      </div>
+      <div class="stat-sub">SET 상품 / 2PACK 상품</div>
+    </div>
+  `;
+}
+
+function switchTab(tab, el) {
+  currentTab = tab;
+  currentFilter = 'all';
+  sortCol = null;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.filter-btn').classList.add('active');
+  document.getElementById('search-input').value = '';
+  renderTable();
+}
+
+function setFilter(f, el) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderTable();
+}
+
+function applyFilters() { renderTable(); }
+
+function getFilteredData() {
+  let data = allData[currentTab];
+  const q = document.getElementById('search-input').value.trim().toLowerCase();
+
+  if (currentFilter !== 'all') {
+    data = data.filter(r => {
+      if (currentFilter === 'mixed') return r.출처.includes('+');
+      return r.출처 === currentFilter || r.출처.startsWith(currentFilter + '+') || r.출처.endsWith('+' + currentFilter);
+    });
+  }
+
+  if (q) data = data.filter(r => r.상품명.toLowerCase().includes(q));
+
+  if (sortCol !== null) {
+    data = [...data].sort((a, b) => {
+      const av = a[sortCol], bv = b[sortCol];
+      if (typeof av === 'number') return sortDir === 'asc' ? av - bv : bv - av;
+      return sortDir === 'asc' ? String(av).localeCompare(String(bv), 'ko') : String(bv).localeCompare(String(av), 'ko');
+    });
+  }
+
+  return data;
+}
+
+function renderTable() {
+  const data = getFilteredData();
+  const maxQty = Math.max(...(allData[currentTab].map(r => r.총주문수량)), 1);
+
+  const isDetail = currentTab === 'detail';
+
+  const cols = isDetail
+    ? ['상품명', '색상', '사이즈', '총주문수량', '총주문건수', '출처']
+    : ['상품명', '총주문수량', '총주문건수', '출처'];
+
+  const labels = isDetail
+    ? ['상품명', '색상', '사이즈', '주문수량', '주문건수', '출처']
+    : ['상품명', '주문수량', '주문건수', '출처'];
+
+  // head
+  document.getElementById('table-head').innerHTML = `<tr>${cols.map((c, i) => {
+    const cls = sortCol === c ? (sortDir === 'asc' ? 'sort-asc' : 'sort-desc') : '';
+    return `<th class="${cls}" onclick="sortBy('${c}')">${labels[i]}</th>`;
+  }).join('')}</tr>`;
+
+  // body
+  if (data.length === 0) {
+    document.getElementById('table-body').innerHTML = `<tr><td colspan="${cols.length}" class="empty">검색 결과가 없습니다</td></tr>`;
+  } else {
+    document.getElementById('table-body').innerHTML = data.map(r => {
+      const tagClass = r.출처.includes('+') ? 'mixed' : r.출처;
+      const barW = Math.max(4, Math.round((r.총주문수량 / maxQty) * 80));
+      return `<tr>
+        <td class="td-name">${r.상품명}</td>
+        ${isDetail ? `<td class="td-mono">${r.색상}</td><td class="td-mono">${r.사이즈}</td>` : ''}
+        <td class="td-num highlight">
+          <div class="bar-wrap">
+            <span>${r.총주문수량.toLocaleString()}</span>
+            <div class="bar" style="width:${barW}px"></div>
+          </div>
+        </td>
+        <td class="td-num">${r.총주문건수.toLocaleString()}</td>
+        <td><span class="tag tag-${tagClass.replace('+', '')}">${r.출처}</span></td>
+      </tr>`;
+    }).join('');
+  }
+
+  document.getElementById('count-badge').textContent = `${data.length.toLocaleString()} / ${allData[currentTab].length.toLocaleString()} 항목`;
+}
+
+function sortBy(col) {
+  if (sortCol === col) {
+    sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortCol = col;
+    sortDir = col === '총주문수량' || col === '총주문건수' ? 'desc' : 'asc';
+  }
+  renderTable();
+}
+
+function resetDashboard() {
+  allData = { detail: [], product: [] };
+  currentTab = 'detail';
+  currentFilter = 'all';
+  sortCol = null;
+  document.getElementById('file-input').value = '';
+  document.getElementById('search-input').value = '';
+  document.getElementById('upload-screen').style.display = 'flex';
+  document.getElementById('dashboard').style.display = 'none';
+}
+</script>
+</body>
+</html>
